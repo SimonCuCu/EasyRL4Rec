@@ -39,7 +39,7 @@ class UserModel_Pairwise_Variance(UserModel_Variance):
                  dnn_hidden_units=(128, 128), dnn_hidden_units_var=(),
                  l2_reg_embedding=1e-5, l2_reg_dnn=1e-1, init_std=0.0001, task_dnn_units=None, seed=2022, dnn_dropout=0,
                  dnn_activation='relu', dnn_use_bn=False, device='cpu', ab_columns=None,
-                 max_logvar=0.5, min_logvar=-10):
+                 max_logvar=0.5, min_logvar=-10, ucb_alpha=1.0):
 
 
         frame = inspect.currentframe()
@@ -56,6 +56,7 @@ class UserModel_Pairwise_Variance(UserModel_Variance):
 
         self.feature_columns = feature_columns
         self.feature_index = self.feature_index
+        self.ucb_alpha = ucb_alpha
 
         self.y_columns = y_columns
         self.task_logit_dim = task_logit_dim

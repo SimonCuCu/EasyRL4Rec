@@ -6,7 +6,11 @@ import numpy as np
 from sklearn.calibration import LabelEncoder
 
 sys.path.extend([".", "./src", "./src/DeepCTR-Torch", "./src/tianshou"])
-from src.core.envs.MovieLens import provide_MF_results
+import importlib.util, pathlib
+spec = importlib.util.spec_from_file_location(
+    "provide_MF_results", pathlib.Path("data/MovieLens/provide_MF_results.py"))
+provide_MF_results = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(provide_MF_results)
 from src.core.envs.BaseData import BaseData, get_distance_mat
 
 # ROOTPATH = os.path.dirname(__file__)

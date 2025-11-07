@@ -40,3 +40,8 @@ events.*
 *.pickle
 temp.*
 *.dat
+
+data/MovieLens/data_raw/
+data/MovieLens/data_processed/
+saved_models/
+visual_results/

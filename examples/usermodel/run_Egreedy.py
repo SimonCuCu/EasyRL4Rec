@@ -54,7 +54,8 @@ def setup_user_model(args, x_columns, y_columns, ab_columns, task, task_logit_di
                                     dnn_hidden_units=args.dnn, dnn_hidden_units_var=args.dnn_var,
                                     seed=args.seed, l2_reg_dnn=args.l2_reg_dnn,
                                     device=device, ab_columns=ab_columns,
-                                    dnn_activation=args.dnn_activation, init_std=0.001)
+                                    dnn_activation=args.dnn_activation, init_std=0.001,
+                                    ucb_alpha=args.ucb_alpha)
 
     if args.loss == "pair":
         loss_fun = loss_pairwise_Standard

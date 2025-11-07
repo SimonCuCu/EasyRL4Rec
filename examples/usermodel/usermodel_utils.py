@@ -60,6 +60,7 @@ def get_args_all():
     parser.add_argument('--lambda_ab', default=10, type=float)
 
     parser.add_argument('--epsilon', default=0, type=float)
+    parser.add_argument('--ucb_alpha', default=1.0, type=float)
     parser.add_argument('--is_ucb', dest='is_ucb', action='store_true')
     parser.add_argument('--no_ucb', dest='is_ucb', action='store_false')
     parser.set_defaults(is_ucb=False)
@@ -73,6 +74,7 @@ def get_args_all():
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--epoch', default=5, type=int)
     parser.add_argument('--cuda', default=0, type=int)
+    parser.add_argument('--num_workers', default=4, type=int)
 
     # exposure parameters:
     parser.add_argument('--tau', default=0, type=float)
@@ -217,7 +219,7 @@ def load_dataset_train(args, dataset, tau, entity_dim, feature_dim, MODEL_SAVE_P
         # Note that we use step as the proxy of timestamp
         timestamp = range(len(df_pos))
         exposure_pos = compute_exposure_effect(dataset, df_pos, timestamp, list_feat, tau, MODEL_SAVE_PATH, DATAPATH)
-    dataset = StaticDataset(x_columns, y_columns, num_workers=4)
+    dataset = StaticDataset(x_columns, y_columns, num_workers=args.num_workers)
     dataset.compile_dataset(df_x_all, df_y, exposure_pos)
 
     return dataset, df_user, df_item, x_columns, y_columns, ab_columns
@@ -264,7 +266,7 @@ def load_dataset_train_IPS(args, dataset, tau, entity_dim, feature_dim, MODEL_SA
 
     IPS_data = compute_IPS(df_x_all, df_train)
 
-    dataset = StaticDataset(x_columns, y_columns, num_workers=4)
+    dataset = StaticDataset(x_columns, y_columns, num_workers=args.num_workers)
     dataset.compile_dataset(df_x_all, df_y, IPS_data)
 
     return dataset, df_user, df_item, x_columns, y_columns, ab_columns
@@ -290,7 +292,7 @@ def load_dataset_val(args, dataset, entity_dim, feature_dim):
                                                       item_features,
                                                       entity_dim, feature_dim)
 
-    dataset_val = StaticDataset(x_columns, y_columns, num_workers=4)
+    dataset_val = StaticDataset(x_columns, y_columns, num_workers=args.num_workers)
     dataset_val.compile_dataset(df_x, df_y)
 
     dataset_val.set_df_item_val(df_item_val)
@@ -334,7 +336,7 @@ def load_dataset_val(args, dataset, entity_dim, feature_dim):
                                                      item_features)
             df_y_complete = pd.DataFrame(np.zeros(len(df_x_complete)), columns=df_y.columns)
 
-            dataset_complete = StaticDataset(x_columns, y_columns, num_workers=4)
+            dataset_complete = StaticDataset(x_columns, y_columns, num_workers=args.num_workers)
             dataset_complete.compile_dataset(df_x_complete, df_y_complete)
             dataset_val.set_dataset_complete(dataset_complete)
 
@@ -363,13 +365,15 @@ def get_task(envname, yfeat):
 
 
 def get_xy_columns(args, df_data, df_user, df_item, user_features, item_features, entity_dim, feature_dim):
+    user_vocab = int(max(df_data['user_id'].max(), df_user.index.max())) + 1
+    item_vocab = int(max(df_data['item_id'].max(), df_item.index.max())) + 1
     if args.env == "KuaiRand-v0" or args.env == "KuaiEnv-v0":
         feat = [x for x in df_item.columns if x[:4] == "feat"]
-        x_columns = [SparseFeatP("user_id", df_data['user_id'].max() + 1, embedding_dim=entity_dim)] + \
-                    [SparseFeatP(col, df_user[col].max() + 1, embedding_dim=feature_dim, padding_idx=0) for col in user_features[1:]] + \
-                    [SparseFeatP("item_id", df_data['item_id'].max() + 1, embedding_dim=entity_dim)] + \
+        x_columns = [SparseFeatP("user_id", user_vocab, embedding_dim=entity_dim)] + \
+                    [SparseFeatP(col, int(df_user[col].max()) + 1, embedding_dim=feature_dim, padding_idx=0) for col in user_features[1:]] + \
+                    [SparseFeatP("item_id", item_vocab, embedding_dim=entity_dim)] + \
                     [SparseFeatP(x,
-                                 df_item[feat].max().max() + 1,
+                                 int(df_item[feat].max().max()) + 1,
                                  embedding_dim=feature_dim,
                                  embedding_name="feat",  # Share the same feature!
                                  padding_idx=0  # using padding_idx in embedding!
@@ -377,23 +381,23 @@ def get_xy_columns(args, df_data, df_user, df_item, user_features, item_features
                     [DenseFeat("duration_normed", 1)]
     elif args.env == "MovieLensEnv-v0":
         feat = [x for x in df_item.columns if x[:4] == "feat"]
-        x_columns = [SparseFeatP("user_id", df_data['user_id'].max() + 1, embedding_dim=entity_dim)] + \
-                    [SparseFeatP(col, df_user[col].max() + 1, embedding_dim=feature_dim, padding_idx=0) for col in user_features[1:]] + \
-                    [SparseFeatP("item_id", df_data['item_id'].max() + 1, embedding_dim=entity_dim)] + \
+        x_columns = [SparseFeatP("user_id", user_vocab, embedding_dim=entity_dim)] + \
+                    [SparseFeatP(col, int(df_user[col].max()) + 1, embedding_dim=feature_dim, padding_idx=0) for col in user_features[1:]] + \
+                    [SparseFeatP("item_id", item_vocab, embedding_dim=entity_dim)] + \
                     [SparseFeatP(x,
-                                 df_item[feat].max().max() + 1,
+                                 int(df_item[feat].max().max()) + 1,
                                  embedding_dim=feature_dim,
                                  embedding_name="feat",  # Share the same feature!
                                  padding_idx=0  # using padding_idx in embedding!
                                  ) for x in feat]
     else: # For Yahoo and Coat dataset
-        x_columns = [SparseFeatP("user_id", df_data['user_id'].max() + 1, embedding_dim=entity_dim)] + \
-                    [SparseFeatP(col, df_user[col].max() + 1, embedding_dim=feature_dim) for col in user_features[1:]] + \
-                    [SparseFeatP("item_id", df_data['item_id'].max() + 1, embedding_dim=entity_dim)] + \
-                    [SparseFeatP(col, df_item[col].max() + 1, embedding_dim=feature_dim) for col in item_features[1:]]
+        x_columns = [SparseFeatP("user_id", user_vocab, embedding_dim=entity_dim)] + \
+                    [SparseFeatP(col, int(df_user[col].max()) + 1, embedding_dim=feature_dim) for col in user_features[1:]] + \
+                    [SparseFeatP("item_id", item_vocab, embedding_dim=entity_dim)] + \
+                    [SparseFeatP(col, int(df_item[col].max()) + 1, embedding_dim=feature_dim) for col in item_features[1:]]
 
-    ab_columns = [SparseFeatP("alpha_u", df_data['user_id'].max() + 1, embedding_dim=1)] + \
-                 [SparseFeatP("beta_i", df_data['item_id'].max() + 1, embedding_dim=1)]
+    ab_columns = [SparseFeatP("alpha_u", user_vocab, embedding_dim=1)] + \
+                 [SparseFeatP("beta_i", item_vocab, embedding_dim=1)]
 
     y_columns = [DenseFeat("y", 1)]
     return x_columns, y_columns, ab_columns

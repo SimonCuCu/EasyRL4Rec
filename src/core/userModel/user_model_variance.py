@@ -66,6 +66,7 @@ class UserModel_Variance(nn.Module):
         self.RL_eval_fun = None
 
         self.softmax = nn.Softmax(dim=0)
+        self.ucb_alpha = 1.0
 
     def compile_RL_test(self, RL_eval_fun):
         self.RL_eval_fun = RL_eval_fun
@@ -275,7 +276,8 @@ class UserModel_Variance(nn.Module):
 
             # with warnings.catch_warnings():
             #     warnings.simplefilter("ignore")
-            ucb_bound = (2 * np.log(self.n_rec) / self.n_each) ** 0.5
+            alpha = getattr(self, "ucb_alpha", 1.0)
+            ucb_bound = alpha * (2 * np.log(self.n_rec) / self.n_each) ** 0.5
 
             u_value = u_value + torch.Tensor(ucb_bound).to(u_value.device)
         else:
@@ -480,6 +482,4 @@ class UserModel_Variance(nn.Module):
 
     def save_model_embedding(self, ):
         self.embedding_dict
-
-
 
